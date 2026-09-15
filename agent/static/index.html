@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Small Harness · Agent 工作台</title>
+  <link rel="stylesheet" href="/static/style.css"><script defer src="/static/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="mark">h.</span><span>small harness<small>AGENT WORKSPACE</small></span></a>
+    <button id="new-session" class="new-button">＋ 新建会话 <span>↗</span></button>
+    <div class="section-label">你的会话</div><nav id="sessions" aria-label="会话列表"></nav>
+    <div class="sidebar-bottom"><span class="status-dot"></span> 本地持久化<span class="version">v0.1</span></div>
+  </aside>
+  <main>
+    <header><div><span class="eyebrow">WORKSPACE /</span> <span id="session-title">新会话</span></div>
+      <div class="header-actions"><button id="memory-button">记忆</button><button id="connection" class="model-chip">检查连接…</button></div>
+    </header>
+    <div id="notice" role="status" class="notice" hidden></div>
+    <section id="conversation" aria-label="对话记录" aria-live="polite">
+      <div id="welcome">
+        <div class="welcome-mark">h<span>✳</span></div><div class="eyebrow">A SMALL LOOP. REAL POSSIBILITIES.</div>
+        <h1>从一个问题开始。</h1><p>计算、查阅文档、延续思考。<br>每一次工具调用，都有迹可循。</p>
+        <div class="starters">
+          <button data-prompt="请计算 (17 × 23) + 9，使用计算器验证。"><span class="card-icon">＋</span><strong>准确计算</strong><small>让工具验证每一步数字</small><span class="arrow">↗</span></button>
+          <button data-prompt="请阅读 handbook 文档，告诉我演示项目的代号、预算和验收项。"><span class="card-icon">▤</span><strong>阅读文档</strong><small>从原文中找到可靠依据</small><span class="arrow">↗</span></button>
+          <button data-prompt="使用 search 查找关于 Context 压缩的模拟资料，并注明来源与数据性质。"><span class="card-icon">⌕</span><strong>探索资料</strong><small>试用模拟搜索与来源回溯</small><span class="arrow">↗</span></button>
+        </div>
+      </div>
+      <div id="messages"></div>
+    </section>
+    <div class="composer-wrap">
+      <div id="run-status" aria-live="polite"></div>
+      <form id="composer"><textarea id="input" rows="2" maxlength="20000" aria-label="消息" placeholder="描述你的问题，或继续上一轮思考…"></textarea>
+        <div class="composer-bottom"><span>⌘ Enter 发送 · 每个会话独立保存</span><button type="submit" id="send" aria-label="发送消息">↑</button></div>
+      </form><div class="footer-note">工具结果可展开查看 · 搜索使用模拟资料 · 重要结论请核验</div>
+    </div>
+  </main>
+  <dialog id="memory-dialog"><form method="dialog"><button class="close" aria-label="关闭">×</button></form><div class="eyebrow">MEMORY</div><h2>让有用的信息留下来。</h2><p>只保存你明确添加的内容。用户级记忆可跨会话召回。</p><div id="memory-list"></div>
+    <form id="memory-form"><textarea id="memory-input" maxlength="1000" required placeholder="例如：我的项目代号是 Cedar。" aria-label="新记忆"></textarea><select id="memory-scope" aria-label="记忆范围"><option value="session">仅当前会话</option><option value="user">所有会话（当前用户）</option></select><button class="primary">保存记忆</button></form>
+  </dialog>
+  <dialog id="config-dialog"><form method="dialog"><button class="close" aria-label="关闭">×</button></form><div class="eyebrow">CONNECTION</div><h2>连接你的模型</h2><p>在项目的 .env 文件配置 LLM_BASE_URL、LLM_MODEL、LLM_API_KEY，然后重启服务。支持 Chat Completions 工具调用接口。</p><p id="auth-hint">本机模式，无需访问令牌。</p><form id="auth-form"><input id="access-token" type="password" autocomplete="off" placeholder="服务访问令牌（非模型 API Key）" aria-label="服务访问令牌"><button class="primary">连接</button></form></dialog>
+</body></html>
+
