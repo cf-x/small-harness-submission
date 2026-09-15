@@ -1,5 +1,7 @@
 # 提交说明
 
+代码链接：https://github.com/cf-x/small-harness-submission （私有仓库）
+
 本项目按原题交付两部分：最小可用 Agent 代码，以及五个模块各选一题的架构设计答案。
 
 ## 给评阅者

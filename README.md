@@ -1,5 +1,7 @@
 # Small Harness
 
+代码仓库：[cf-x/small-harness-submission](https://github.com/cf-x/small-harness-submission)（私有，访问需授权）。
+
 一个从零实现核心循环的最小 Agent。支持真实 Chat Completions 工具调用、独立会话、SQLite 持久化、基础上下文压缩、显式记忆、取消和执行日志；附本地聊天界面与命令行。
 
 依据：[飞书笔试题](https://ailoha-inc.feishu.cn/wiki/XtViwTulHi0ORHk1HGocgxaqnrh)（revision 14），设计推导见[架构说明](docs/ARCHITECTURE.md)。核心流程未使用 LangGraph、OpenHands、OpenClaw 或其他 Agent 框架。
