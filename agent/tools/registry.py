@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import json
+import math
 from typing import Awaitable, Callable
 
 from jsonschema import Draft202012Validator, ValidationError
@@ -55,6 +56,11 @@ class Registry:
             try:
                 def reject_constant(_):
                     raise ValueError("Non-finite JSON value")
+                def finite_float(value):
+                    parsed = float(value)
+                    if not math.isfinite(parsed):
+                        raise ValueError("Non-finite JSON value")
+                    return parsed
                 def unique_pairs(pairs):
                     result = {}
                     for key, value in pairs:
@@ -62,9 +68,10 @@ class Registry:
                             raise ValueError("Duplicate JSON key")
                         result[key] = value
                     return result
-                args = json.loads(raw, parse_constant=reject_constant, object_pairs_hook=unique_pairs)
+                args = json.loads(raw, parse_constant=reject_constant,
+                                  parse_float=finite_float, object_pairs_hook=unique_pairs)
             except (ValueError, RecursionError) as exc:
-                raise ToolError("invalid_json", "工具参数需要合法 JSON 对象，且不能包含重复键") from exc
+                raise ToolError("invalid_json", "工具参数需要合法 JSON 对象，不能包含重复键或非有限数值") from exc
             try:
                 Draft202012Validator(tool.parameters).validate(args)
             except ValidationError as exc:
@@ -82,4 +89,3 @@ class Registry:
         except Exception:
             # User data and exception internals are not forwarded to the model or trace.
             return {"ok": False, "error": {"code": "tool_error", "message": "工具执行失败"}}
-

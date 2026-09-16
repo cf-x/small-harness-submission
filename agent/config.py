@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import json
+import math
 import os
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -43,18 +44,19 @@ class Settings:
             raise ValueError("Context must leave at least 2048 input tokens")
         if not 1 <= self.max_steps <= 100 or not 0 <= self.max_retries <= 5:
             raise ValueError("Invalid step/retry budget")
-        if min(self.llm_timeout, self.run_timeout, self.tool_timeout, self.run_token_budget, self.max_output_tokens) <= 0:
-            raise ValueError("Budgets and timeouts must be positive")
+        if any(not math.isfinite(value) or value <= 0 for value in
+               (self.llm_timeout, self.run_timeout, self.tool_timeout, self.run_token_budget, self.max_output_tokens)):
+            raise ValueError("Budgets and timeouts must be finite and positive")
         if not isinstance(self.extra_body, dict):
             raise ValueError("LLM_EXTRA_BODY must be an object")
         reserved = {"model", "messages", "tools", "tool_choice", "stream", "max_tokens", "n"}
         if reserved & self.extra_body.keys():
             raise ValueError("LLM_EXTRA_BODY cannot override core protocol fields")
         if not isinstance(self.auth_tokens, dict) or any(
-            not isinstance(k, str) or len(k) < 24 or not isinstance(v, str) or not v
+            not isinstance(k, str) or not k.isascii() or len(k) < 24 or not isinstance(v, str) or not v
             for k, v in self.auth_tokens.items()
         ):
-            raise ValueError("AGENT_AUTH_TOKENS must map tokens of at least 24 characters to user names")
+            raise ValueError("AGENT_AUTH_TOKENS must map ASCII tokens of at least 24 characters to user names")
 
     @classmethod
     def from_env(cls):
@@ -77,4 +79,3 @@ class Settings:
         )
         result.validate()
         return result
-

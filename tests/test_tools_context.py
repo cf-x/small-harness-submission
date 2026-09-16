@@ -12,12 +12,17 @@ from conftest import call, assert_protocol
 
 @pytest.mark.parametrize("expression, expected", [
     ("17*23", "391"), ("0.1+0.2", "0.3"), ("(2+3)**2", "25"),
-    ("-5//2", "-3"), ("-5%2", "1"), ("1/4", "0.25"), ("2**-2", "0.25")])
+    ("-5//2", "-3"), ("-5%2", "1"), ("1/4", "0.25"), ("2**-2", "0.25"),
+    ("99999999999999999999999999999//1", "99999999999999999999999999999"),
+    ("99999999999999999999999999999%2", "1"),
+    ("-99999999999999999999999999999%2", "1"),
+    ("0.99999999999999999999999999999//1", "0"),
+    ("5%-2", "-1"), ("-5%-2", "-1")])
 def test_calculator(expression, expected):
     assert calculate(expression)["value"] == expected
 
 
-@pytest.mark.parametrize("expression", ["__import__('os').system('ls')", "2**10000000", "1/0", "1e100", "1e-101", "True+1", "[1][0]", "x+1", "1+"*200, "2**(2**20)"])
+@pytest.mark.parametrize("expression", ["__import__('os').system('ls')", "2**10000000", "1/0", "1//0", "1%0", "1e100", "1e-101", "True+1", "[1][0]", "x+1", "1+"*200, "2**(2**20)"])
 def test_rejects_unsafe_math(expression):
     with pytest.raises(ToolError):
         calculate(expression)
@@ -149,3 +154,33 @@ def test_summary_commit_cannot_regress_its_boundary(setup):
     store.save_summary(sid,100,"latest")
     store.save_summary(sid,50,"stale")
     assert store.summary(sid)["content"]=="latest"
+
+
+async def test_history_pages_recover_tail_after_compaction(setup):
+    store, cfg, model, runtime, sid = setup
+    content = "旧资料。" * 400 + "Recovery code: ARCHIVE731" + "结束。" * 400
+    seed_run(store, sid, content, "已记录", "archive")
+    seq = store.messages(sid)[0]["seq"]
+    # Simulate already-archived material: recall must still access its full source.
+    store.save_summary(sid, store.messages(sid)[-1]["seq"], "有损摘要")
+    ctx = ToolContext("alice", sid, "current")
+    result = await runtime.registry.execute(call("read_history", '{"query":"ARCHIVE731"}'), ctx)
+    page = result["data"]["results"][0]
+    assert page["seq"] == seq and page["next_offset"] == 1200
+    assert "ARCHIVE731" not in page["content"]
+    recovered = page["content"]
+    while page["next_offset"] is not None:
+        result = await runtime.registry.execute(call("read_history", json.dumps({"seq": seq, "offset": page["next_offset"]})), ctx)
+        page = result["data"]["results"][0]
+        assert len(page["content"]) <= 1200 and page["total_chars"] == len(content)
+        recovered += page["content"]
+    assert recovered == content
+    for args, code in [({"offset": 1}, "invalid_arguments"),
+                       ({"seq": seq, "offset": -1}, "invalid_arguments"),
+                       ({"seq": seq, "offset": len(content) + 1}, "invalid_offset")]:
+        result = await runtime.registry.execute(call("read_history", json.dumps(args)), ctx)
+        assert result["error"]["code"] == code
+    # A seq from a different session cannot expose its contents.
+    other = store.create_session("alice")["id"]
+    result = await runtime.registry.execute(call("read_history", json.dumps({"seq": seq, "offset": 1200})), ToolContext("alice", other, "current"))
+    assert result["data"]["results"] == []

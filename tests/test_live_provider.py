@@ -1,4 +1,5 @@
 """Opt in with RUN_LIVE_TESTS=1. Makes paid requests to the configured provider."""
+import json
 import os
 import uuid
 
@@ -88,13 +89,17 @@ async def test_real_llm_assignment_scenarios(tmp_path, scenario):
         else:
             # Seed a deterministic long transcript; only the recovery question uses the real LLM.
             for i in range(200):
-                text = '最早确认的档案代号为 ARCHIVE731。' if i == 0 else f'第{i}轮记录了无关的例行检查。' * 8
+                text = ('例行记录，无需作为档案代号。' * 120 + '最早确认的档案代号为 ARCHIVE731。') if i == 0 else f'第{i}轮记录了无关的例行检查。' * 8
                 old, _ = store.enqueue('live-test', sid, text, f'seed-{i}')
                 store.begin(old['id'])
                 store.append_model(old['id'], {'role':'assistant', 'content':'记录收到。'})
                 store.finish(old['id'], 'completed', '记录收到。', append=False)
-            result = await send(sid, '请使用 read_history 按 seq=1 查阅最早的用户消息，然后告诉我当时确认的档案代号。')
+            result = await send(sid, '请使用 read_history 按 seq=1 查阅最早的用户消息；如果内容截断，请继续分页。然后告诉我当时确认的档案代号。')
             assert used(result, 'read_history') and 'ARCHIVE731' in result['answer']
+            calls = [call for row in store.messages(sid) if row['run_id'] == result['id']
+                     for call in row['message'].get('tool_calls', [])]
+            assert any(call['function']['name'] == 'read_history'
+                       and json.loads(call['function']['arguments']).get('offset', 0) > 0 for call in calls)
             assert store.summary(sid) is not None
             await runtime.close()
             store.close()

@@ -102,10 +102,10 @@ CLI 与服务使用同一个默认数据库；**不能同时打开**。先停止
 
 | 名称 | 示例参数 | 行为 |
 |---|---|---|
-| `calculator` | `{"expression":"(17*23)+9"}` | AST 白名单、28 位十进制运算；限制表达式、节点数、数值与指数 |
+| `calculator` | `{"expression":"(17*23)+9"}` | AST 白名单、一般运算使用 28 位十进制精度；整除和取余对当前操作数精确求商，避免先舍入导致错误；限制表达式、节点数、数值与指数 |
 | `search` | `{"query":"Context","limit":3}` | 预置资料搜索；返回 `mock:true` 和 `fixture://` 来源 |
 | `read_docs` | `{"doc_id":"handbook","offset":0,"limit":2000}` | 仅访问注册文档，带版本、来源、分页位置 |
-| `read_history` | `{"query":"预算","limit":3}` | 仅回查当前 session 已结束的历史；支持精确 `seq` |
+| `read_history` | `{"query":"预算","limit":3}` | 仅回查当前 session 已结束的历史；支持精确 `seq`，长内容用 `seq` 和 `offset` 分页，每页最多 1200 字符 |
 
 另一个可读文档是 `assignment`，来源为飞书原题的文字快照。扩展文档需修改可信 catalog，不能传任意路径。`read_docs` 支持按文档绑定允许的用户集合；默认两个示例文档对已认证用户开放。
 
@@ -132,6 +132,8 @@ CLI 与服务使用同一个默认数据库；**不能同时打开**。先停止
 ### 压缩方式
 
 基础压缩使用**确定性摘录**，不额外调用 LLM：从旧历史保留最近的用户陈述、答复与成功工具结果片段，附原始 `seq`，注明有损和可能存在后续修正。原始消息不删除，`read_history` 可按关键词/序号回查；精确工具结果也可查到，回查结果本身不会再次递归召回。
+
+回查结果包含 `seq`、`offset`、`next_offset` 和 `total_chars`。若 `next_offset` 非空，继续调用例如 `{"seq":1,"offset":1200}`，直至取完需要的内容。`offset` 必须和 `seq` 一起使用，无法跨会话读取。
 
 当前版本不声称长对话压缩完全无损，也没有强事实抽取、自动矛盾合并或语义摘要。200 轮测试证明预算受控、当前修正保留、历史可查及协议成对；真实模型是否稳定正确利用摘录需要端到端评估。
 
@@ -183,7 +185,7 @@ curl http://127.0.0.1:8000/api/runs/<run_id>
 |---|---|---|
 | GET | `/api/status` | 配置状态，无密钥 |
 | GET / POST | `/api/sessions` | 列表、新建 |
-| GET | `/api/sessions/{sid}` | 历史、摘要、最近 run |
+| GET | `/api/sessions/{sid}` | 历史、摘要、全部活动 run 和最近 20 条已结束 run |
 | POST | `/api/sessions/{sid}/messages` | 202 受理后返回 run_id |
 | GET | `/api/runs/{rid}` | 完成/失败/取消状态 |
 | GET | `/api/runs/{rid}/trace` | 工具名、ID、耗时、错误与 usage |
@@ -193,7 +195,7 @@ curl http://127.0.0.1:8000/api/runs/<run_id>
 
 默认只接受 loopback 来源，绑定单个 `local-user`；不同浏览器用户不会自动变成不同身份。Host 校验防止本机无认证模式的 DNS 重绑定。
 
-若需要多用户，在 `.env` 配置 `AGENT_AUTH_TOKENS` 为“随机令牌 → 用户名”的 JSON；每个令牌至少 24 字符，然后重启。HTTP 带 `Authorization: Bearer <token>`，网页在连接窗口输入**服务访问令牌**。模型 API Key 只保留在服务端。非本机监听必须启用令牌；面向公网还需要 TLS、部署限流和完整身份管理，本示例不自带这些生产设施。
+若需要多用户，在 `.env` 配置 `AGENT_AUTH_TOKENS` 为“随机令牌 → 用户名”的 JSON；每个令牌至少 24 个 ASCII 字符，然后重启。HTTP 带 `Authorization: Bearer <token>`，网页在连接窗口输入**服务访问令牌**。模型 API Key 只保留在服务端。非本机监听必须启用令牌；面向公网还需要 TLS、部署限流和完整身份管理，本示例不自带这些生产设施。
 
 ## 测试
 
@@ -209,7 +211,7 @@ curl http://127.0.0.1:8000/api/runs/<run_id>
 RUN_LIVE_TESTS=1 .venv/bin/python -m pytest -q -m live
 ```
 
-它会用独立临时数据库验证真实 calculator 工具调用与连续追问，不修改日常会话。模型选择具有随机性，测试失败需检查实际协议和 trace，不能为了“通过”把线上模型替换成固定答案。
+它会用独立临时数据库验证真实计算与追问、文档/搜索、会话隔离/记忆更新，以及 200 轮压缩后的分页回查和重启续聊，不修改日常会话。模型选择具有随机性，测试失败需检查实际协议和 trace，不能为了“通过”把线上模型替换成固定答案。
 
 ## 提交材料
 
@@ -217,6 +219,7 @@ RUN_LIVE_TESTS=1 .venv/bin/python -m pytest -q -m live
 - [五模块架构说明](docs/ARCHITECTURE.md)
 - [AI Prompt 与问题解决记录](AI_WORKLOG.md)
 - [测试与验证记录](docs/TEST_REPORT.md)
+- [对抗式审查与修复记录](docs/ADVERSARIAL_REVIEW.md)
 - 原题文字快照：`agent/fixtures/assignment.md`
 - 打包脚本：`scripts/package_submission.py`（白名单选取文件并检查已知凭证）
 

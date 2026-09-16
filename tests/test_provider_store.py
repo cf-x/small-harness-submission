@@ -81,3 +81,11 @@ def test_config_rejects_unsafe_remote_http_and_overrides():
     with pytest.raises(ValueError):Settings(base_url='http://remote.example').validate()
     with pytest.raises(ValueError):Settings(extra_body={'messages':[]}).validate()
     with pytest.raises(ValueError):Settings(auth_tokens={'short':'alice'}).validate()
+    with pytest.raises(ValueError):Settings(auth_tokens={'é' * 24:'alice'}).validate()
+
+
+@pytest.mark.parametrize('field', ['llm_timeout', 'run_timeout', 'tool_timeout'])
+@pytest.mark.parametrize('value', [float('nan'), float('inf'), float('-inf')])
+def test_config_rejects_nonfinite_timeouts(field, value):
+    with pytest.raises(ValueError, match='finite'):
+        Settings(**{field: value}).validate()

@@ -75,6 +75,8 @@ def create_app(settings: Settings | None = None, provider=None):
         if cfg.auth_tokens:
             value = request.headers.get("authorization", "")
             token = value.removeprefix("Bearer ") if value.startswith("Bearer ") else ""
+            if not token.isascii():
+                raise HTTPException(401, "需要有效的访问令牌")
             for known, owner in cfg.auth_tokens.items():
                 if secrets.compare_digest(known, token):
                     return owner
@@ -113,7 +115,14 @@ def create_app(settings: Settings | None = None, provider=None):
         for row in rows:
             row["message"].pop("reasoning_content", None)
         with store.db() as db:
-            runs = [dict(r) for r in db.execute("SELECT * FROM runs WHERE session_id=? ORDER BY created_at DESC LIMIT 20", (sid,))]
+            runs = [dict(r) for r in db.execute("""
+                SELECT * FROM runs WHERE session_id=? AND (
+                    status IN ('queued', 'running') OR id IN (
+                        SELECT id FROM runs WHERE session_id=? AND status NOT IN ('queued', 'running')
+                        ORDER BY created_at DESC LIMIT 20
+                    )
+                ) ORDER BY created_at DESC
+                """, (sid, sid))]
         return {"session": info, "messages": rows, "runs": runs, "summary": store.summary(sid)}
 
     @app.post("/api/sessions/{sid}/messages", status_code=202)

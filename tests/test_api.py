@@ -49,6 +49,14 @@ async def test_authentication_ownership_and_no_user_spoofing(tmp_path):
         assert (await client.get('/api/sessions')).json()==[]
 
 
+async def test_non_ascii_bearer_token_returns_unauthorized(tmp_path):
+    token = 'a' * 32
+    async with client_for(tmp_path, ScriptedProvider(), {token: 'alice'}) as (client, app):
+        response = await client.get('/api/sessions', headers={b'Authorization': b'Bearer ' + b'\xe9' * 24})
+        assert response.status_code == 401
+        assert (await client.get('/api/sessions', headers={'Authorization': 'Bearer ' + token})).status_code == 200
+
+
 async def test_memory_api_and_cross_user_rejection(tmp_path):
     a,b='a'*32,'b'*32
     async with client_for(tmp_path,ScriptedProvider(),{a:'alice',b:'bob'}) as (client,app):
@@ -91,3 +99,21 @@ async def test_api_cancel_and_queue(tmp_path):
         await app.state.runtime.wait(r2)
         assert (await client.get('/api/runs/'+r2)).json()['answer']=='继续'
 
+
+async def test_active_run_remains_visible_after_many_queue_cancellations(tmp_path):
+    started = asyncio.Event()
+    async def slow(messages, tools):
+        started.set()
+        await asyncio.Event().wait()
+    async with client_for(tmp_path, ScriptedProvider([slow])) as (client, app):
+        sid = (await client.post('/api/sessions', json={})).json()['id']
+        path = f'/api/sessions/{sid}/messages'
+        active = (await client.post(path, json={'text': 'slow', 'request_id': 'active'})).json()['id']
+        await started.wait()
+        for i in range(21):
+            queued = (await client.post(path, json={'text': 'queued', 'request_id': str(i)})).json()['id']
+            assert (await client.post('/api/runs/' + queued + '/cancel')).json()['status'] == 'cancelled'
+        history = (await client.get('/api/sessions/' + sid)).json()
+        assert any(r['id'] == active and r['status'] == 'running' for r in history['runs'])
+        assert len([r for r in history['runs'] if r['status'] == 'cancelled']) == 20
+        assert (await client.post('/api/runs/' + active + '/cancel')).json()['status'] == 'cancelled'
