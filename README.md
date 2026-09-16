@@ -1,6 +1,6 @@
 # Small Harness
 
-代码仓库：[cf-x/small-harness-submission](https://github.com/cf-x/small-harness-submission)（私有，访问需授权）。
+代码仓库：[cf-x/small-harness-submission](https://github.com/cf-x/small-harness-submission)（公开，无需登录即可查看）。
 
 一个从零实现核心循环的最小 Agent。支持真实 Chat Completions 工具调用、独立会话、SQLite 持久化、基础上下文压缩、显式记忆、取消和执行日志；附本地聊天界面与命令行。
 

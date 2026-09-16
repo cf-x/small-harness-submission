@@ -1,6 +1,6 @@
 # 提交说明
 
-代码链接：https://github.com/cf-x/small-harness-submission （私有仓库）
+代码链接：[cf-x/small-harness-submission](https://github.com/cf-x/small-harness-submission)（公开仓库）
 
 本项目按原题交付两部分：最小可用 Agent 代码，以及五个模块各选一题的架构设计答案。
 
@@ -34,4 +34,4 @@ ZIP 包含源码、测试、文档、示例配置、锁文件、JUnit 证据、�
 
 运行环境为 Python 3.11+、macOS/Linux。凭证不能随包转交；接收者使用自己的账户。本地 8765 预览地址仅供开发者当前机器使用。
 
-代码仓库为私有仓库，访问链接不等于授予访问权限。可直接交付 ZIP；若评阅者要求 GitHub 链接，需由仓库所有者授予对应账户权限。
+代码仓库已公开，无需登录或额外授权即可查看代码与文档。提交时直接分享上述 GitHub 链接即可，也可交付 ZIP。
